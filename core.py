@@ -29,8 +29,8 @@ N_ITER_LYAPUNOV = 1000   # Итераций для усреднения ln|f'(x)
 N_SKIP_LYAPUNOV = 300    # Прогрев перед вычислением показателя
 
 # --- Определение периода ---
-N_SKIP_PERIOD = 2000     # Прогрев перед анализом периода (больше — надёжнее)
-N_CHECK_PERIOD = 512     # Длина орбиты для проверки периодичности
+N_SKIP_PERIOD = 5000     # Прогрев перед анализом периода (больше — надёжнее)
+N_CHECK_PERIOD = 4096    # Длина орбиты для проверки периодичности
 TOL_PERIOD = 1e-6        # Допуск: |x_{n} - x_{n+T}| < TOL => период T
 
 # --- Бисекция точки бифуркации ---
@@ -38,7 +38,7 @@ BISECT_STEPS = 60        # Число шагов бисекции (даёт то
 BISECT_TOL = 1e-14       # Остановка бисекции по ширине интервала
 
 # --- Грубый скан для поиска бифуркаций ---
-N_SCAN = 800             # Число точек μ в первичном скане
+N_SCAN = 2000            # Число точек μ в первичном скане
 
 
 def generalized_map(x, mu, z):
@@ -149,7 +149,7 @@ def _detect_periods_batch(mu_arr, z, n_skip=N_SKIP_PERIOD, n_check=N_CHECK_PERIO
     ref = orbit[-1]
     periods = np.zeros(n, dtype=int)
 
-    for period in [1, 2, 4, 8, 16, 32, 64, 128, 256]:
+    for period in [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]:
         if period * 8 > n_check:
             break
 
@@ -187,16 +187,80 @@ def _detect_period(mu, z, n_skip=N_SKIP_PERIOD, n_check=N_CHECK_PERIOD,
 #  Поиск точек бифуркаций
 # ======================================================================
 
+def _iterate_fp(mu, z, period, x_start):
+    """
+    Вычисляет f^period(x_start) и мультипликатор (произведение производных).
+    Возвращает (f^p(x), multiplier).  При расхождении возвращает (nan, nan).
+    """
+    y = x_start
+    mult = 1.0
+    for _ in range(period):
+        if abs(y) > OVERFLOW:
+            return np.nan, np.nan
+        if abs(y) > 1e-30:
+            mult *= -mu * z * abs(y) ** (z - 1) * np.sign(y)
+        else:
+            mult = 0.0
+        y = 1.0 - mu * abs(y) ** z
+        if not np.isfinite(y):
+            return np.nan, np.nan
+    return y, mult
+
+
+def _newton_find_cycle(mu, z, period, x_start, max_iter=40):
+    """
+    Методом Ньютона находит неподвижную точку f^period (точку p-цикла).
+    Возвращает (x_fixed, multiplier).
+    """
+    x = x_start
+    for _ in range(max_iter):
+        y, mult = _iterate_fp(mu, z, period, x)
+        if not np.isfinite(y) or not np.isfinite(mult):
+            break
+        g = y - x
+        denom = mult - 1.0
+        if abs(denom) < 1e-30:
+            break
+        x -= g / denom
+        if abs(g) < 1e-15:
+            break
+    # Финальное вычисление мультипликатора в уточнённой точке
+    _, mult = _iterate_fp(mu, z, period, x)
+    return x, mult
+
+
 def _bisect_bifurcation(z, p_before, mu_lo, mu_hi):
-    """Уточняет точку бифуркации бисекцией между mu_lo и mu_hi."""
+    """
+    Уточняет точку бифуркации бисекцией по устойчивости p-цикла.
+    Использует метод Ньютона для нахождения точной точки p-цикла
+    и проверяет знак |мультипликатор| − 1.
+    """
+    # Находим p-цикл при mu_lo (он здесь заведомо устойчив)
+    n_warmup = max(N_SKIP_PERIOD, p_before * 50)
+    x = X0
+    for _ in range(n_warmup):
+        x = 1.0 - mu_lo * abs(x) ** z
+    x_fp, _ = _newton_find_cycle(mu_lo, z, p_before, x)
+
+    # Верификация: расширяем скобку, пока mu_hi действительно
+    # не окажется по ту сторону бифуркации (|mult| >= 1)
+    x_track = x_fp
+    step = mu_hi - mu_lo
+    x_fp_hi, mult_hi = _newton_find_cycle(mu_hi, z, p_before, x_track)
+    while abs(mult_hi) < 1.0 and mu_hi < 2.0:
+        x_track = x_fp_hi
+        mu_hi = min(2.0, mu_hi + step)
+        x_fp_hi, mult_hi = _newton_find_cycle(mu_hi, z, p_before, x_track)
+
     lo, hi = mu_lo, mu_hi
     for _ in range(BISECT_STEPS):
         mid = (lo + hi) / 2.0
-        per = _detect_period(mid, z)
-        if per == p_before:
+        x_fp_mid, mult = _newton_find_cycle(mid, z, p_before, x_fp)
+        if np.isfinite(mult) and abs(mult) < 1.0:
             lo = mid
+            x_fp = x_fp_mid   # Отслеживаем p-цикл вдоль устойчивой ветви
         else:
-            hi = mid
+            hi = mid           # Расходимость или |mult|>=1 → за бифуркацией
         if hi - lo < BISECT_TOL:
             break
     return (lo + hi) / 2.0
@@ -235,7 +299,7 @@ def find_bifurcation_points(z, n_bifurcations=8):
             bif_mu = _bisect_bifurcation(z, p1, mu1_end, mu2_start)
             bif_points.append(bif_mu)
 
-    while len(bif_points) >= 2 and len(bif_points) < n_bifurcations - 1:
+    while len(bif_points) >= 2 and len(bif_points) < n_bifurcations:
         n = len(bif_points)
         d_last = bif_points[-1] - bif_points[-2]
         ds = feigenbaum_deltas(np.array(bif_points))
@@ -247,31 +311,19 @@ def find_bifurcation_points(z, n_bifurcations=8):
         if predicted > 2.0 or predicted < bif_points[-1]:
             break
 
-        lo_s = bif_points[-1] + d_next * 0.1
-        hi_s = min(2.0, predicted + d_next * 2)
-
+        # Используем Ньютон-трекинг вместо определения периода:
+        # p_before — текущий период, его цикл рождается при bif_points[-1]
+        # и теряет устойчивость при следующей бифуркации.
+        # mu_lo берём в середине предсказанного окна (цикл хорошо устойчив),
+        # mu_hi — с запасом за предсказание.
         p_before = 1 << n
-        n_fine = 300
-        fine_mus = np.linspace(lo_s, hi_s, n_fine)
-        fine_periods = _detect_periods_batch(fine_mus, z)
+        mu_lo = bif_points[-1] + d_next * 0.4
+        mu_hi = min(2.0, predicted + d_next * 3)
 
-        start_idx = -1
-        for i in range(n_fine):
-            if fine_periods[i] == p_before:
-                start_idx = i
-                break
-
-        found = False
-        if start_idx >= 0:
-            for i in range(start_idx + 1, n_fine):
-                if fine_periods[i - 1] == p_before and fine_periods[i] != p_before:
-                    bif_mu = _bisect_bifurcation(z, p_before,
-                                                  fine_mus[i - 1], fine_mus[i])
-                    bif_points.append(bif_mu)
-                    found = True
-                    break
-
-        if not found:
+        bif_mu = _bisect_bifurcation(z, p_before, mu_lo, mu_hi)
+        if bif_mu > bif_points[-1] + 1e-15:
+            bif_points.append(bif_mu)
+        else:
             break
 
     return np.array(bif_points)
