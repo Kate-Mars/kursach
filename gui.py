@@ -125,7 +125,7 @@ class ChaosApp:
         self.gs = GridSpec(
             12, 12,
             figure=self.fig,
-            left=0.07, right=0.97, top=0.92, bottom=0.13,
+            left=0.07, right=0.97, top=0.85, bottom=0.13,
             hspace=0.4, wspace=0.35,
         )
 
@@ -258,14 +258,14 @@ class ChaosApp:
         self.btn_reset.label.set_fontsize(9)
         self.btn_reset.on_clicked(self._on_reset)
 
-        ax_csv = self.fig.add_axes(CSV_BTN_POS)
-        self.btn_csv = Button(ax_csv, "Экспорт CSV",
-                              color=COLORS["btn_inactive"],
-                              hovercolor=COLORS["accent3"])
-        self.btn_csv.label.set_color(COLORS["accent3"])
-        self.btn_csv.label.set_fontsize(9)
-        self.btn_csv.on_clicked(self._on_export_csv)
-        self.ax_csv = ax_csv
+        # ax_csv = self.fig.add_axes(CSV_BTN_POS)
+        # self.btn_csv = Button(ax_csv, "Экспорт CSV",
+        #                       color=COLORS["btn_inactive"],
+        #                       hovercolor=COLORS["accent3"])
+        # self.btn_csv.label.set_color(COLORS["accent3"])
+        # self.btn_csv.label.set_fontsize(9)
+        # self.btn_csv.on_clicked(self._on_export_csv)
+        # self.ax_csv = ax_csv
 
         self.slider_axes = {
             "z": ax_z, "mu": ax_mu, "n": ax_n, "speed": ax_speed,
@@ -307,9 +307,27 @@ class ChaosApp:
         ax.grid(True, color=COLORS["grid"], alpha=0.3, linewidth=0.5)
 
     def _hide_all_axes(self):
-        for ax in ([self.ax_main, self.ax_left, self.ax_right,
-                     self.ax_dyn_left, self.ax_dyn_right] + self.ax_panels):
+        """Скрывает все оси и полностью отключает их от обработки событий."""
+        all_plot_axes = ([self.ax_main, self.ax_left, self.ax_right,
+                          self.ax_dyn_left, self.ax_dyn_right] + self.ax_panels)
+        for ax in all_plot_axes:
             ax.set_visible(False)
+            ax.set_navigate(False)
+            ax.set_zorder(-10)
+
+        for ax in self.slider_axes.values():
+            ax.set_visible(False)
+            ax.set_navigate(False)
+            ax.set_zorder(-10)
+
+        # self.ax_csv.set_visible(False)
+        # self.ax_csv.set_navigate(False)
+        # self.ax_csv.set_zorder(-10)
+
+        for bax in self.dyn_btn_axes:
+            bax.set_visible(False)
+            bax.set_navigate(False)
+            bax.set_zorder(-10)
 
     # ----------------------------------------------------------- tab switching
     def _show_tab(self, idx):
@@ -318,6 +336,7 @@ class ChaosApp:
 
         self.current_tab = idx
 
+        # Обновляем стили кнопок вкладок
         for i, (bax, btn) in enumerate(self.tab_buttons):
             if i == idx:
                 bax.set_facecolor(COLORS["btn_active"])
@@ -334,33 +353,33 @@ class ChaosApp:
 
         is_dyn = idx == DYN_TAB
         slider_visibility = {
-            0: {"z": True,  "mu": False, "n": False, "speed": False},
-            1: {"z": True,  "mu": True,  "n": True,  "speed": False},
-            2: {"z": True,  "mu": False, "n": False, "speed": False},
-            3: {"z": True,  "mu": False, "n": False, "speed": False},
-            4: {"z": True,  "mu": False, "n": False, "speed": False},
-            5: {"z": True,  "mu": True,  "n": False, "speed": True},
+            0: {"z": True, "mu": False, "n": False, "speed": False},
+            1: {"z": True, "mu": True, "n": True, "speed": False},
+            2: {"z": True, "mu": False, "n": False, "speed": False},
+            3: {"z": True, "mu": False, "n": False, "speed": False},
+            4: {"z": True, "mu": False, "n": False, "speed": False},
+            5: {"z": True, "mu": True, "n": False, "speed": True},
         }
+
         for key, visible in slider_visibility[idx].items():
             ax = self.slider_axes[key]
             ax.set_visible(visible)
+            ax.set_navigate(visible)
             ax.set_zorder(10 if visible else -10)
 
-        is_feig = idx == 3
-        self.ax_csv.set_visible(is_feig)
-        self.ax_csv.set_zorder(10 if is_feig else -10)
+        # is_feig = idx == 3
+        # self.ax_csv.set_visible(is_feig)
+        # self.ax_csv.set_navigate(is_feig)
+        # self.ax_csv.set_zorder(10 if is_feig else -10)
 
         for bax in self.dyn_btn_axes:
             bax.set_visible(is_dyn)
+            bax.set_navigate(is_dyn)
             bax.set_zorder(10 if is_dyn else -10)
 
         draw_funcs = [
-            self._draw_bifurcation,
-            self._draw_cobweb,
-            self._draw_lyapunov,
-            self._draw_feigenbaum,
-            self._draw_scaling,
-            self._draw_dynamics,
+            self._draw_bifurcation, self._draw_cobweb, self._draw_lyapunov,
+            self._draw_feigenbaum, self._draw_scaling, self._draw_dynamics,
         ]
         draw_funcs[idx]()
         self.fig.canvas.draw_idle()

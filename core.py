@@ -324,9 +324,7 @@ def scaling_zoom_regions(z, n_zooms=3):
 # Экспорт таблицы Фейгенбаума в CSV
 # ======================================================================
 def export_feigenbaum_table(z, filename, n_bifurcations=8):
-    """
-    Сохраняет CSV-таблицу с колонками: n, mu_n, delta_n, alpha_n.
-    """
+    """Сохраняет CSV-таблицу с колонками: n, mu_n, delta_n, alpha_n."""
     bp = find_bifurcation_points(z, n_bifurcations)
     ds = feigenbaum_deltas(bp)
     als = feigenbaum_alphas(z, bp)
@@ -348,7 +346,6 @@ def export_feigenbaum_table(z, filename, n_bifurcations=8):
                 f"{a_val:.8f}" if a_val != "" and not np.isnan(a_val) else "",
             ])
 
-        # Добавляем информацию о сходимости
         if len(ds) >= 3:
             writer.writerow([])
             writer.writerow(["# Сходимость δ_n к пределу:"])
