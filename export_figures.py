@@ -17,10 +17,8 @@ import core
 OUTDIR = "figures"
 DPI = 300
 
-# Набор z по указанию научрука: мелкий шаг вблизи квадратичного случая
 Z_VALUES = [2.0, 2.1, 2.2, 2.3]
 
-# Стиль, приближённый к GUI
 COLORS = {
     "bg": "#1e1e2e",
     "panel": "#2a2a3d",
@@ -34,7 +32,6 @@ COLORS = {
     "scatter": "#89dceb",
 }
 
-
 def _style_ax(ax):
     ax.set_facecolor(COLORS["panel"])
     ax.tick_params(colors=COLORS["text"], labelsize=9)
@@ -45,9 +42,7 @@ def _style_ax(ax):
         spine.set_color(COLORS["grid"])
     ax.grid(True, color=COLORS["grid"], alpha=0.3, linewidth=0.5)
 
-
 def save_bifurcation(z, outdir):
-    """Бифуркационная диаграмма — полный вид."""
     fig, ax = plt.subplots(figsize=(10, 6), facecolor=COLORS["bg"])
     _style_ax(ax)
 
@@ -75,13 +70,11 @@ def save_bifurcation_zooms(z, outdir):
     if len(bp) < 3:
         return
 
-    # Зум 1: от первой бифуркации до чуть дальше последней
-    # (видны все найденные бифуркации)
     mu_lo1 = bp[0] - (bp[1] - bp[0]) * 0.3
     mu_hi1 = bp[-1] + (bp[-1] - bp[-2]) * 0.5
     mu_hi1 = min(mu_hi1, 2.0)
 
-    # Зум 2: последние 3-4 бифуркации
+    
     if len(bp) >= 4:
         mu_lo2 = bp[-4] - (bp[-3] - bp[-4]) * 0.3
     else:
@@ -89,7 +82,7 @@ def save_bifurcation_zooms(z, outdir):
     mu_hi2 = bp[-1] + (bp[-1] - bp[-2]) * 0.3
     mu_hi2 = min(mu_hi2, 2.0)
 
-    # Зум 3: последние 2 бифуркации — максимальное увеличение
+    
     mu_lo3 = bp[-2] - (bp[-1] - bp[-2]) * 0.3
     mu_hi3 = bp[-1] + (bp[-1] - bp[-2]) * 0.2
     mu_hi3 = min(mu_hi3, 2.0)
@@ -110,7 +103,7 @@ def save_bifurcation_zooms(z, outdir):
         ax.scatter(mu_data, x_data, s=0.04, c=COLORS["scatter"],
                    alpha=0.5, linewidths=0)
 
-        # Автоопределение диапазона x по данным (верхняя ветка)
+        
         if len(x_data) > 0:
             x_lo = np.percentile(x_data, 0.5) - 0.05
             x_hi = np.percentile(x_data, 99.5) + 0.05
@@ -124,7 +117,7 @@ def save_bifurcation_zooms(z, outdir):
             ax.set_ylabel("$x$", fontsize=10)
         ax.set_title(f"{title}  ($z = {z:.1f}$)", fontsize=11)
 
-        # Отметить точки бифуркации вертикальными линиями
+        
         for mu_bif in bp:
             if mu_lo <= mu_bif <= mu_hi:
                 ax.axvline(mu_bif, color=COLORS["accent2"], linewidth=0.6,
@@ -200,8 +193,6 @@ def save_scaling(z, outdir):
 def save_feigenbaum_convergence(z, outdir):
     """
     Сходимость δ_n и α_n для конкретного z.
-    Каждая точка подписана значением — видно, как последовательность
-    приближается к пределу (4→5→4.6→4.67→...).
     """
     bp = core.find_bifurcation_points(z, n_bifurcations=8)
     ds = core.feigenbaum_deltas(bp)
@@ -215,12 +206,12 @@ def save_feigenbaum_convergence(z, outdir):
         ns = np.arange(1, len(ds) + 1)
         ax1.plot(ns, ds, "o-", color=COLORS["accent1"], markersize=8,
                  linewidth=2, label="$\\delta_n$", zorder=5)
-        # Подписи значений у каждой точки
+        
         for i, (n, d) in enumerate(zip(ns, ds)):
             ax1.annotate(f"{d:.3f}", (n, d), textcoords="offset points",
                          xytext=(0, 12), ha="center", fontsize=8,
                          color=COLORS["text"])
-        # Пунктир предельного значения
+        
         ax1.axhline(ds[-1], color=COLORS["accent1"], linestyle=":", alpha=0.5,
                      label=f"предел: {ds[-1]:.4f}")
 
@@ -258,8 +249,7 @@ def save_feigenbaum_convergence(z, outdir):
 
 def save_feigenbaum_vs_z(outdir):
     """
-    Зависимость δ(z) и α(z) — плотная сетка z для гладкой кривой,
-    плюс эталонные значения для z=2.
+    Зависимость δ(z) и α(z)
     """
     z_arr = np.arange(2.0, 4.05, 0.1)
     d_arr, a_arr = core.feigenbaum_constants_vs_z(z_arr, n_bif=6)
@@ -293,7 +283,6 @@ def save_feigenbaum_vs_z(outdir):
 
 def main():
     os.makedirs(OUTDIR, exist_ok=True)
-    # 5 графиков на каждый z + 1 общий
     total = len(Z_VALUES) * 5 + 1
     done = 0
 
