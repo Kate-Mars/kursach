@@ -19,7 +19,6 @@ _backend_ok = False
 for _be in _BACKENDS:
     try:
         matplotlib.use(_be)
-        # Проверяем, что бэкенд реально загружается
         __import__(f"matplotlib.backends.backend_{_be.lower()}")
         _backend_ok = True
         break
@@ -42,7 +41,6 @@ _CACHE_MAX = 20
 
 
 def _cache_put(cache, key, value):
-    """Добавить в кэш с LRU-ограничением."""
     if len(cache) >= _CACHE_MAX:
         oldest = next(iter(cache))
         del cache[oldest]
@@ -82,15 +80,10 @@ TAB_NAMES = [
 
 DYN_TAB = 5
 
-# Координаты слайдеров [x, y, width, height] в нормализованных единицах фигуры.
-# Левая колонка (z, μ): x=0.15, w=0.30; правая колонка (n/speed): x=0.60, w=0.30.
-# Слайдеры n и speed занимают ОДНУ и ту же позицию (правый верх) — это намеренное
-# наложение: в каждый момент времени виден только один из них (переключаются через
-# set_visible в _show_tab), что экономит место на панели управления.
 SLIDER_LEFT_TOP = [0.15, 0.05, 0.30, 0.025]     # z
 SLIDER_LEFT_BOTTOM = [0.15, 0.02, 0.30, 0.025]   # μ
-SLIDER_RIGHT_TOP = [0.60, 0.05, 0.30, 0.025]     # Итераций (n) / Скорость (speed)
-CSV_BTN_POS = [0.30, 0.02, 0.12, 0.025]           # Кнопка "Экспорт CSV" (правее μ-слайдера)
+SLIDER_RIGHT_TOP = [0.60, 0.05, 0.30, 0.025]
+CSV_BTN_POS = [0.30, 0.02, 0.12, 0.025]
 
 
 class ChaosApp:
@@ -133,7 +126,7 @@ class ChaosApp:
         self._create_sliders()
         self._create_axes()
 
-        # Зум и перетаскивание на бифуркационной диаграмме
+        
         self._bif_xlim_default = (0, 2)
         self._bif_ylim_default = (-1.5, 1.5)
         self._drag_start = None
@@ -258,15 +251,6 @@ class ChaosApp:
         self.btn_reset.label.set_fontsize(9)
         self.btn_reset.on_clicked(self._on_reset)
 
-        # ax_csv = self.fig.add_axes(CSV_BTN_POS)
-        # self.btn_csv = Button(ax_csv, "Экспорт CSV",
-        #                       color=COLORS["btn_inactive"],
-        #                       hovercolor=COLORS["accent3"])
-        # self.btn_csv.label.set_color(COLORS["accent3"])
-        # self.btn_csv.label.set_fontsize(9)
-        # self.btn_csv.on_clicked(self._on_export_csv)
-        # self.ax_csv = ax_csv
-
         self.slider_axes = {
             "z": ax_z, "mu": ax_mu, "n": ax_n, "speed": ax_speed,
         }
@@ -320,10 +304,6 @@ class ChaosApp:
             ax.set_navigate(False)
             ax.set_zorder(-10)
 
-        # self.ax_csv.set_visible(False)
-        # self.ax_csv.set_navigate(False)
-        # self.ax_csv.set_zorder(-10)
-
         for bax in self.dyn_btn_axes:
             bax.set_visible(False)
             bax.set_navigate(False)
@@ -336,7 +316,6 @@ class ChaosApp:
 
         self.current_tab = idx
 
-        # Обновляем стили кнопок вкладок
         for i, (bax, btn) in enumerate(self.tab_buttons):
             if i == idx:
                 bax.set_facecolor(COLORS["btn_active"])
@@ -366,11 +345,6 @@ class ChaosApp:
             ax.set_visible(visible)
             ax.set_navigate(visible)
             ax.set_zorder(10 if visible else -10)
-
-        # is_feig = idx == 3
-        # self.ax_csv.set_visible(is_feig)
-        # self.ax_csv.set_navigate(is_feig)
-        # self.ax_csv.set_zorder(10 if is_feig else -10)
 
         for bax in self.dyn_btn_axes:
             bax.set_visible(is_dyn)
@@ -428,7 +402,6 @@ class ChaosApp:
         if event.button == 1:
             self._drag_start = (event.xdata, event.ydata)
         elif event.button == 3:
-            # ПКМ — сброс зума
             self.ax_main.set_xlim(*self._bif_xlim_default)
             self.ax_main.set_ylim(*self._bif_ylim_default)
             self.fig.canvas.draw_idle()
@@ -515,7 +488,6 @@ class ChaosApp:
         cache_key = round(z, 1)
         if cache_key not in self._lyap_cache:
             mu_arr = np.linspace(0.01, 2.0, 1000)
-            # n_iter=800 (вместо 1000) — компромисс скорости для интерактивного GUI
             lyap = core.lyapunov_exponent(mu_arr, z, n_iter=800)
             _cache_put(self._lyap_cache, cache_key, (mu_arr, lyap))
         mu_arr, lyap = self._lyap_cache[cache_key]
@@ -606,7 +578,6 @@ class ChaosApp:
                     cell.set_text_props(color=COLORS["text"])
                     cell.set_alpha(0.85)
 
-        # --- Правая панель: сводная таблица для разных z ---
         ax2 = self.ax_right
         if self._feig_vs_z_cache is None:
             z_arr = np.array([2.0, 2.1, 2.2, 2.3, 2.5, 3.0, 4.0, 6.0])
