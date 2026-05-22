@@ -17,24 +17,16 @@ import core
 
 OUTDIR = "tables"
 
-# Набор z по указанию научрука: мелкий шаг вблизи квадратичного случая
 Z_VALUES = [2.0, 2.1, 2.2, 2.3]
 
 N_BIF = 8
 
-# Эталонные значения из литературы (Feigenbaum 1978, 1979)
-# Для z=2 (квадратичное отображение) известны точные значения
 REFERENCE = {
     2.0: {"delta": 4.6692016091029, "alpha": 2.5029078750959},
 }
 
 
 def save_convergence_table(z, outdir):
-    """
-    Подробная таблица сходимости для данного z.
-    Колонки: n, период 2^n, μ_n, Δμ_n, δ_n, α_n
-    Показывает весь процесс: как δ₁, δ₂, δ₃... приближаются к пределу.
-    """
     bp = core.find_bifurcation_points(z, n_bifurcations=N_BIF)
     ds = core.feigenbaum_deltas(bp)
     als = core.feigenbaum_alphas(z, bp)
@@ -63,14 +55,14 @@ def save_convergence_table(z, outdir):
                 d_mu_str = ""
 
             # δ_n = Δμ_{n-1} / Δμ_n  (начинается с n=1, т.е. i=2)
-            d_idx = i - 2  # ds[0] соответствует i=2
+            d_idx = i - 2
             if 0 <= d_idx < len(ds):
                 delta_str = f"{ds[d_idx]:.8f}"
             else:
                 delta_str = ""
 
             # α_n
-            a_idx = i - 1  # als[0] соответствует i=1
+            a_idx = i - 1
             if 0 <= a_idx < len(als):
                 alpha_str = f"{als[a_idx]:.8f}"
             else:
@@ -85,7 +77,7 @@ def save_convergence_table(z, outdir):
                 alpha_str,
             ])
 
-        # Итоговая строка с пределом
+        
         ref = REFERENCE.get(z, {})
         delta_limit = ds[-1] if len(ds) > 0 else ""
         alpha_limit = als[-1] if len(als) > 0 else ""
@@ -124,8 +116,7 @@ def save_convergence_table(z, outdir):
 
 def save_summary_table(outdir):
     """
-    Сводная таблица: предельные δ(z) и α(z) для всех z,
-    с эталонными значениями и отклонением.
+    Сводная таблица: предельные δ(z) и α(z) для всех z.
     """
     z_arr = np.array(Z_VALUES)
     d_arr, a_arr = core.feigenbaum_constants_vs_z(z_arr, n_bif=N_BIF)
