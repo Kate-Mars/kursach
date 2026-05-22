@@ -9,7 +9,7 @@ import math
 import numpy as np
 
 # ======================================================================
-# Именованные константы (все «магические числа» собраны здесь)
+# Именованные константы
 # ======================================================================
 # Порог расхождения: итерация считается убежавшей, если |x| > OVERFLOW
 OVERFLOW = 1e10
@@ -157,16 +157,9 @@ def _detect_period(mu, z, n_skip=N_SKIP_PERIOD, n_check=N_CHECK_PERIOD, tol=TOL_
     return int(_detect_periods_batch(np.array([mu]), z, n_skip, n_check, tol)[0])
 
 # ======================================================================
-# 🌟 АЛГОРИТМ ФЕЙГЕНБАУМА: Суперустойчивые точки μ_n
+# Алгоритм Фейгенбаума: Суперустойчивые точки μ_n
 # ======================================================================
 def _compute_superstable_mu(z, n, mu_guess, tol=1e-15, max_iter=60):
-    """
-    Находит суперустойчивый параметр μ_n для ЛОГИСТИЧЕСКОГО отображения:
-    x_{n+1} = μ·(1 - 2x_n^2)
-
-    Условие: f_μ^(2^n)(0) = 0
-    Параметр z игнорируется (оставлен для совместимости с интерфейсом)
-    """
     period = 2 ** n
     mu = mu_guess
 
@@ -174,27 +167,26 @@ def _compute_superstable_mu(z, n, mu_guess, tol=1e-15, max_iter=60):
         x = 0.0
         dx_dmu = 0.0
 
-        # Итерация отображения и накопление производной dx/dμ
+        
         for _ in range(period):
-            # x_{k+1} = μ·(1 - 2·x_k^2)
+            
             term = 1.0 - 2.0 * x * x
             x_new = mu * term
 
-            # d(x_{k+1})/dμ = (1-2x_k^2) + ∂f/∂x * d(x_k)/dμ
-            # ∂f/∂x = -4·μ·x
+            
             dx_dmu = term + (-4.0 * mu * x) * dx_dmu
 
             x = x_new
-            if abs(x) > 2.0:  # Орбита ушла за пределы аттрактора
+            if abs(x) > 2.0:  
                 break
 
         if abs(dx_dmu) < 1e-16:
             break
 
-        # Шаг Ньютона: μ_new = μ - F(μ)/F'(μ)
+        
         step = -x / dx_dmu
 
-        # Ограничение шага для устойчивости
+        
         if abs(step) > 0.05:
             step = 0.05 * (1.0 if step >= 0 else -1.0)
 
@@ -206,24 +198,17 @@ def _compute_superstable_mu(z, n, mu_guess, tol=1e-15, max_iter=60):
 
 
 def find_bifurcation_points(z, n_bifurcations=8):
-    """
-    Находит последовательность суперустойчивых параметров μ_n
-    для ЛОГИСТИЧЕСКОГО отображения x_{n+1} = μ·(1 - 2x_n^2)
-
-    Параметр z игнорируется (оставлен для совместимости)
-    Возвращает значения μ_n для n=1..n_bifurcations
-    """
     mu_values = []
     DELTA_FEIG = 4.6692016091029909
 
-    # Начальные приближения из таблицы Фейгенбаума
+    
     guesses = [0.71, 0.81]
 
     for n in range(1, n_bifurcations + 1):
         if n <= len(guesses):
             guess = guesses[n - 1]
         else:
-            # Предсказание по закону Фейгенбаума
+            
             diff = mu_values[-1] - mu_values[-2]
             guess = mu_values[-1] + diff / DELTA_FEIG
 
@@ -246,7 +231,7 @@ def feigenbaum_deltas(bif_points):
         return np.where(np.abs(den) > 1e-15, num / den, np.nan)
 
 def feigenbaum_alphas(z, bif_points):
-    """alpha_n через отношение расстояний от критической точки x=0."""
+    
     if len(bif_points) < 3:
         return np.array([])
     alphas = []
@@ -273,7 +258,7 @@ def feigenbaum_alphas(z, bif_points):
     return np.array(alphas)
 
 def feigenbaum_constants_vs_z(z_values, n_bif=6):
-    """Предельные delta и alpha для набора значений z."""
+    
     delta_arr = np.full(len(z_values), np.nan)
     alpha_arr = np.full(len(z_values), np.nan)
     for i, z in enumerate(z_values):
@@ -294,7 +279,7 @@ def feigenbaum_constants_vs_z(z_values, n_bif=6):
 # Скейлинг
 # ======================================================================
 def scaling_zoom_regions(z, n_zooms=3):
-    """Прямоугольные области для демонстрации самоподобия."""
+    
     bp = find_bifurcation_points(z, n_zooms + 3)
     if len(bp) < 3:
         return [(0.0, 2.0, -1.5, 1.5)]
@@ -324,7 +309,7 @@ def scaling_zoom_regions(z, n_zooms=3):
 # Экспорт таблицы Фейгенбаума в CSV
 # ======================================================================
 def export_feigenbaum_table(z, filename, n_bifurcations=8):
-    """Сохраняет CSV-таблицу с колонками: n, mu_n, delta_n, alpha_n."""
+    
     bp = find_bifurcation_points(z, n_bifurcations)
     ds = feigenbaum_deltas(bp)
     als = feigenbaum_alphas(z, bp)
